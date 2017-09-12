@@ -1,6 +1,7 @@
 "use strict";
 
 const Commando = require('discord.js-commando'),
+	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid');
 
 class StatusCommand extends Commando.Command {
@@ -17,7 +18,7 @@ class StatusCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'check-in' && !Raid.validRaid(message.channel.id)) {
+			if (message.command.name === 'status' && !Gym.isValidChannel(message.channel.name)) {
 				message.reply('Check out of a raid from its raid channel!');
 				return true;
 			}
@@ -26,17 +27,18 @@ class StatusCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		if (!Raid.validRaid(message.channel.id)) {
+		if (!Raid.validRaid(args[0])) {
 			message.channel.send(Raid.getRaidsFormattedMessage(message.channel.id))
 				.catch(err => console.log(err));
 		} else {
-			const raid = Raid.getRaid(message.channel.id),
+			const raid_id = args[0],
+				raid = Raid.getRaid(raid_id),
 				formatted_message = await Raid.getFormattedMessage(raid);
 
 			// post a new raid message
-			message.channel.send(Raid.getRaidSourceChannelMessage(raid), formatted_message)
+			message.channel.send(Raid.getRaidIdMessage(raid), formatted_message)
 				.then(status_message => {
-					Raid.addMessage(raid.channel_id, status_message);
+					Raid.addMessage(raid_id, status_message);
 				})
 				.catch(err => console.log(err));
 		}

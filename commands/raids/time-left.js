@@ -1,6 +1,7 @@
 "use strict";
 
 const Commando = require('discord.js-commando'),
+	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -16,6 +17,12 @@ class TimeRemainingCommand extends Commando.Command {
 			examples: ['\t!time-left 1:45', '\t!remain 50'],
 			args: [
 				{
+					key: 'raid_id',
+					label: 'raid id',
+					prompt: 'What is the ID of the raid you wish to set the time remaining for?',
+					type: 'raid'
+				},
+				{
 					key: 'time-left',
 					label: 'time left',
 					prompt: 'How much time is remaining on the raid (use h:mm or mm format)?\nExample: `1:43`',
@@ -28,7 +35,7 @@ class TimeRemainingCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'time-left' && !Raid.validRaid(message.channel.id)) {
+			if (message.command.name === 'time-left' && !Gym.isValidChannel(message.channel.name)) {
 				message.reply('Set the end time for a raid from its raid channel!');
 				return true;
 			}
@@ -37,8 +44,9 @@ class TimeRemainingCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const time = args['time-left'],
-			info = Raid.setRaidEndTime(message.channel.id, time);
+		const raid_id = args['raid_id'],
+			time = args['time-left'],
+			info = Raid.setRaidEndTime(raid_id, time);
 
 		message.react('👍')
 			.catch(err => console.log(err));

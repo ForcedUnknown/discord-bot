@@ -1,6 +1,7 @@
 "use strict";
 
 const Commando = require('discord.js-commando'),
+	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -16,6 +17,12 @@ class StartTimeCommand extends Commando.Command {
 			examples: ['\t!start-time 2:20pm', '\t!start \'30 minutes\''],
 			args: [
 				{
+					key: 'raid_id',
+					label: 'raid id',
+					prompt: 'What is the ID of the raid you wish to set the start time for?',
+					type: 'raid'
+				},
+				{
 					key: 'start-time',
 					label: 'start time',
 					prompt: 'What time do you wish to begin this raid?\nExamples: `8:43`, `2:20pm`, `30 minutes`',
@@ -27,7 +34,7 @@ class StartTimeCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'start-time' && !Raid.validRaid(message.channel.id)) {
+			if (message.command.name === 'start-time' && !Gym.isValidChannel(message.channel.name)) {
 				message.reply('Set the start time of a raid from its raid channel!');
 				return true;
 			}
@@ -36,8 +43,9 @@ class StartTimeCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const start_time = args['start-time'],
-			info = Raid.setRaidStartTime(message.channel.id, start_time);
+		const raid_id = args['raid_id'],
+			start_time = args['start-time'],
+			info = Raid.setRaidStartTime(raid_id, start_time);
 
 		message.react('👍')
 			.catch(err => console.log(err));
@@ -61,7 +69,7 @@ class StartTimeCommand extends Commando.Command {
 			if (member_id !== message.member.id) {
 				Raid.getMember(member_id)
 					.then(member => member.send(
-						`A start time has been set for ${Raid.getChannel(info.raid.channel_id).toString()} @ **${info.raid.start_time}**. ` +
+						`A start time has been set for ${raid_id} @ **${info.raid.start_time}**. ` +
 						`There ${verb} currently **${total_attendees}** ${noun} attending!`))
 					.catch(err => console.log(err));
 			}

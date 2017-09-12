@@ -1,6 +1,7 @@
 "use strict";
 
 const Commando = require('discord.js-commando'),
+	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -16,6 +17,12 @@ class SetLocationCommand extends Commando.Command {
 			examples: ['\t!set-location Unicorn', '\t!location \'Bellevue Park\'', '\t!location squirrel'],
 			args: [
 				{
+					key: 'raid_id',
+					label: 'raid id',
+					prompt: 'What is the ID of the raid you wish to set the location for?',
+					type: 'raid'
+				},
+				{
 					key: 'gym_id',
 					label: 'gym',
 					prompt: 'Where is the raid taking place?\nExample: `manor theater`',
@@ -28,7 +35,7 @@ class SetLocationCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'set-location' && !Raid.validRaid(message.channel.id)) {
+			if (message.command.name === 'set-location' && !Gym.isValidChannel(message.channel.name)) {
 				message.reply('Set the location of a raid from its raid channel!');
 				return true;
 			}
@@ -37,8 +44,9 @@ class SetLocationCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const gym_id = args['gym_id'],
-			info = Raid.setRaidLocation(message.channel.id, gym_id);
+		const raid_id = args['raid_id'],
+			gym_id = args['gym_id'],
+			info = Raid.setRaidLocation(raid_id, gym_id);
 
 		message.react('👍')
 			.catch(err => console.log(err));
