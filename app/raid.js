@@ -89,8 +89,8 @@ class Raid {
 
 						this.persistRaid(raid);
 
-						this.getChannel(raid.channel_id)
-							.send('**WARNING** - this channel will be deleted automatically at ' + moment(deletion_time).format('h:mm a') + '!')
+						this.getChannel(raid.source_channel_id)
+							.send('**WARNING** - raid `${raid.raid_id}` will be deleted automatically at ' + moment(deletion_time).format('h:mm a') + '!')
 							.catch(err => console.log(err));
 					}
 					if (raid.deletion_time && (now > raid.deletion_time)) {

@@ -69,7 +69,7 @@ class InterestedCommand extends Commando.Command {
 
 			message.member.send(`You expressed interest in attending raid ${raid_id}. ` +
 				`There ${verb} now **${total_attendees}** potential ${noun}!  ` +
-				'Be sure to update your status in its channel!')
+				`Be sure to update your status in ${Raid.getChannel(info.raid.source_channel_id).toString()}!`)
 				.catch(err => console.log(err));
 
 			// get previous bot message & update
