@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('LocationCommand'),
+	Commando = require('discord.js-commando'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
@@ -49,12 +50,11 @@ class SetLocationCommand extends Commando.Command {
 			info = Raid.setRaidLocation(raid_id, gym_id);
 
 		message.react('👍')
-			.catch(err => console.log(err));
+			.catch(err => log.error(err));
 
 		Utility.cleanConversation(message);
 
-		// post a new raid message and replace/forget old bot message
-		await Raid.refreshStatusMessages(info.raid);
+		Raid.refreshStatusMessages(info.raid);
 	}
 }
 

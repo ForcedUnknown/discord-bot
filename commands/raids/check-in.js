@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('CheckInCommand'),
+	Commando = require('discord.js-commando'),
 	NaturalArgumentType = require('../../types/natural'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
@@ -51,12 +52,11 @@ class CheckInCommand extends Commando.Command {
 			info = Raid.setMemberStatus(raid_id, message.member.id, Constants.RaidStatus.PRESENT, additional_attendees);
 
 		message.react('👍')
-			.catch(err => console.log(err));
+			.catch(err => log.error(err));
 
 		Utility.cleanConversation(message);
 
-		// get previous bot messages & update
-		await Raid.refreshStatusMessages(info.raid);
+		Raid.refreshStatusMessages(info.raid);
 	}
 }
 

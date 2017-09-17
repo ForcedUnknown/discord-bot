@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('DoneCommand'),
+	Commando = require('discord.js-commando'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
@@ -39,10 +40,10 @@ class DoneCommand extends Commando.Command {
 		const raid_id = args['raid_id'];
 
 		Raid.setPresentAttendeesToComplete(raid_id, message.member.id)
-			.catch(err => console.log(err));
+			.catch(err => log.error(err));
 
-		message.react('👍')
-			.catch(err => console.log(err));
+    message.react('👍')
+			.catch(err => log.error(err));
 
 		Utility.cleanConversation(message);
 	}

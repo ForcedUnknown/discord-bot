@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('PokemonCommand'),
+	Commando = require('discord.js-commando'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
@@ -47,12 +48,11 @@ class SetPokemonCommand extends Commando.Command {
 			info = Raid.setRaidPokemon(raid_id, pokemon);
 
 		message.react('👍')
-			.catch(err => console.log(err));
+			.catch(err => log.error(err));
 
 		Utility.cleanConversation(message);
 
-		// post a new raid message and replace/forget old bot message
-		await Raid.refreshStatusMessages(info.raid);
+		Raid.refreshStatusMessages(info.raid);
 	}
 }
 

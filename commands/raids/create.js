@@ -1,10 +1,11 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('CreateCommand'),
+	Commando = require('discord.js-commando'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility'),
-	EndTimeType = require('../../types/time');
+	TimeType = require('../../types/time');
 
 class RaidCommand extends Commando.Command {
 	constructor(client) {
@@ -30,15 +31,16 @@ class RaidCommand extends Commando.Command {
 					key: 'gym_id',
 					label: 'gym',
 					prompt: 'Where is this raid taking place?\nExample: `manor theater`',
-					type: 'gym'
+					type: 'gym',
+					wait: 60
 				},
 				{
-					key: 'time-left',
+					key: 'time',
 					label: 'time left',
 					prompt: 'How much time is remaining on the raid (use h:mm or mm format)?\nExample: `1:43`',
 					type: 'time',
 					min: 'relative',
-					default: EndTimeType.UNDEFINED_END_TIME
+					default: TimeType.UNDEFINED_END_TIME
 				}
 			],
 			argsPromptLimit: 3,
@@ -67,12 +69,12 @@ class RaidCommand extends Commando.Command {
 	async run(message, args) {
 		const pokemon = args['pokemon'],
 			gym_id = args['gym_id'],
-			time_left = args['time-left'];
+			time = args['time'];
 
 		let raid,
 			formatted_message;
 
-		const info = Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id, time_left);
+		const info = Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id, time);
 
 		Utility.cleanConversation(message, true);
 
@@ -82,7 +84,7 @@ class RaidCommand extends Commando.Command {
 			.then(announcement_message => {
 				return Raid.setAnnouncementMessage(raid.raid_id, announcement_message);
 			})
-			.catch(err => console.log(err));
+			.catch(err => log.error(err));
 	}
 }
 

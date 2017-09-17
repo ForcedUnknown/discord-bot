@@ -1,6 +1,7 @@
 "use strict";
 
-const lunr = require('lunr'),
+const log = require('loglevel').getLogger('GymSearch'),
+	lunr = require('lunr'),
 	he = require('he'),
 	Search = require('./search');
 
@@ -10,7 +11,7 @@ class Gym extends Search {
 	}
 
 	buildIndex() {
-		console.log('Splicing gym metadata and indexing gym data...');
+		log.info('Splicing gym metadata and indexing gym data...');
 
 		const gyms_base = require('../data/gyms'),
 			gyms_metadata = require('../data/gyms-metadata'),
@@ -22,12 +23,47 @@ class Gym extends Search {
 
 		this.region_map = require('../data/region-map');
 
-		this.index = lunr(function () {
+		// This index is only indexing against name, description, and nickname
+		this.name_index = lunr(function () {
 			// reference will be the entire gym object so we can grab whatever we need from it (GPS coordinates, name, etc.)
 			this.ref('object');
 
-			// static fields for gym name and description
+			// static fields for gym name, nickname, and description
 			this.field('name');
+			this.field('nickname');
+			this.field('description');
+
+			merged_gyms.forEach(function (gym) {
+				// Gym document is a object with its reference and fields to collection of values
+				const gymDocument = Object.create(null);
+
+				gym.gymName = he.decode(gym.gymName);
+				gym.gymInfo.gymDescription = he.decode(gym.gymInfo.gymDescription);
+
+				gymDocument['name'] = gym.gymName;
+				gymDocument['description'] = gym.gymInfo.gymDescription;
+
+				if (gym.nickname) {
+					gym.nickname = he.decode(gym.nickname);
+					gymDocument['nickname'] = gym.nickname;
+				}
+
+				// reference
+				gymDocument['object'] = JSON.stringify(gym);
+
+				// Actually add this gym to the Lunr db
+				this.add(gymDocument);
+			}, this);
+		});
+
+		// This index is indexing against all data, including reverse geocoded data and nearby places
+		this.full_index = lunr(function () {
+			// reference will be the entire gym object so we can grab whatever we need from it (GPS coordinates, name, etc.)
+			this.ref('object');
+
+			// static fields for gym name, nickname, and description
+			this.field('name');
+			this.field('nickname');
 			this.field('description');
 
 			// fields from geocoding data, can add more if / when needed
@@ -48,7 +84,6 @@ class Gym extends Search {
 			this.field('places');
 
 			// field from supplementary metadata
-			this.field('nickname');
 			this.field('additional_terms');
 
 			merged_gyms.forEach(function (gym) {
@@ -56,7 +91,7 @@ class Gym extends Search {
 				const gymDocument = Object.create(null);
 
 				gym.gymName = he.decode(gym.gymName);
-				gym.gymInfo.gymDescriptino = he.decode(gym.gymInfo.gymDescription);
+				gym.gymInfo.gymDescription = he.decode(gym.gymInfo.gymDescription);
 
 				if (gym.nickname) {
 					gym.nickname = he.decode(gym.nickname);
@@ -66,12 +101,17 @@ class Gym extends Search {
 				gymDocument['name'] = gym.gymName;
 				gymDocument['description'] = gym.gymInfo.gymDescription;
 
+				if (gym.nickname) {
+					gym.nickname = he.decode(gym.nickname);
+					gymDocument['nickname'] = gym.nickname;
+				}
+
 				// Build a map of the geocoded information:
 				//   key is the address component's type
 				//   value is a set of that type's values across all address components
 				const addressInfo = new Map();
 				if (!gym.gymInfo.addressComponents) {
-					console.log('Gym "' + gym.gymName + '" has no geocode information!');
+					log.warn('Gym "' + gym.gymName + '" has no geocode information!');
 				} else {
 					gym.gymInfo.addressComponents.forEach(function (addressComponent) {
 						addressComponent.addressComponents.forEach(function (addComp) {
@@ -100,11 +140,6 @@ class Gym extends Search {
 				}
 
 				// merge in additional info from supplementary metadata file
-				// Index nickname as well
-				if (gym.nickname) {
-					gymDocument['nickname'] = gym.nickname;
-				}
-
 				gymDocument['additional_terms'] = gym.additional_terms;
 
 				// reference
@@ -115,10 +150,14 @@ class Gym extends Search {
 			}, this);
 		});
 
-		console.log('Indexing gym data complete');
+		log.info('Indexing gym data complete');
 	}
 
-	search(channel_id, terms) {
+	static singleTermSearch(term, index) {
+		return index.search(Search.makeFuzzy(term));
+	}
+
+	async internal_search(channel_id, terms, index) {
 		// lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
 		// on everything and getting the intersection of the hits
 
@@ -128,11 +167,11 @@ class Gym extends Search {
 			.filter(term => lunr.stopWordFilter(term))
 			.map(term => term.replace(/^\W+/, '').replace(/\W+$/, ''));
 
-		let results = super.search([filtered_terms[0]])
+		let results = Gym.singleTermSearch(filtered_terms[0], index)
 			.map(result => result.ref);
 
 		for (let i = 1; i < filtered_terms.length; i++) {
-			const termResults = super.search([filtered_terms[i]])
+			const termResults = Gym.singleTermSearch(filtered_terms[i], index)
 				.map(result => result.ref);
 
 			results = results.filter(result => {
@@ -145,7 +184,7 @@ class Gym extends Search {
 			}
 		}
 
-		const channel_name = require('./raid').getCreationChannelName(channel_id);
+		const channel_name = await require('./raid').getCreationChannelName(channel_id);
 
 		// Now filter results based on what channel this request came from
 		return results
@@ -153,6 +192,18 @@ class Gym extends Search {
 			.filter(gym => {
 				return this.region_map[channel_name].indexOf(gym.gymId) >= 0;
 			});
+	}
+
+	async search(channel_id, terms) {
+		// First try against name/nickname / description-only index
+		let results = await this.internal_search(channel_id, terms, this.name_index);
+
+		if (results.length === 0) {
+			// That didn't return anything, so now try the geocoded data one
+			results = await this.internal_search(channel_id, terms, this.full_index);
+		}
+
+		return Promise.resolve(results);
 	}
 
 	isValidChannel(channel_name) {

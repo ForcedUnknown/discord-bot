@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('JoinCommand'),
+	Commando = require('discord.js-commando'),
 	Constants = require('../../app/constants'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
@@ -51,32 +52,15 @@ class JoinCommand extends Commando.Command {
 			info = Raid.setMemberStatus(raid_id, message.member.id, Constants.RaidStatus.COMING, additional_attendees);
 
 		if (!info.error) {
-			const total_attendees = Raid.getAttendeeCount(info.raid);
-
 			message.react('👍')
-				.catch(err => console.log(err));
+				.catch(err => log.error(err));
 
 			Utility.cleanConversation(message);
 
-			const verb =
-					total_attendees === 1 ?
-						'is' :
-						'are',
-				noun =
-					total_attendees === 1 ?
-						'trainer' :
-						'trainers';
-
-			message.member.send(`You signed up for raid ${raid_id}. ` +
-				`There ${verb} now **${total_attendees}** potential ${noun}!  ` +
-				`Be sure to update your status in ${Raid.getChannel(info.raid.source_channel_id).toString()}!`)
-				.catch(err => console.log(err));
-
-			// get previous bot message & update
-			await Raid.refreshStatusMessages(info.raid);
+			Raid.refreshStatusMessages(info.raid);
 		} else {
 			message.reply(info.error)
-				.catch(err => console.log(err));
+				.catch(err => log.error(err));
 		}
 	}
 }
