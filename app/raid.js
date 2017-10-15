@@ -540,7 +540,7 @@ class Raid {
 		const raid = this.getRaid(channel_id);
 
 		raid.pokemon = pokemon;
-		raid.is_exclusive = pokemon.exclusive;
+		raid.is_exclusive = !!pokemon.exclusive;
 
 		if (!!pokemon.name) {
 			raid.has_begun = true;
