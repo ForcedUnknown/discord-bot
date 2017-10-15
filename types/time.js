@@ -56,7 +56,7 @@ class TimeType extends Commando.ArgumentType {
 					moment(end_time) :
 					raid_creation_time.clone().add(incubation_duration + hatched_duration, 'minutes');
 
-				max_duration = hatched_duration;
+				max_duration = incubation_duration + hatched_duration;
 				last_possible_time = raid_end_time;
 				break;
 
@@ -189,7 +189,7 @@ class TimeType extends Commando.ArgumentType {
 					moment(end_time) :
 					raid_creation_time.clone().add(incubation_duration + hatched_duration, 'minutes');
 
-				max_duration = hatched_duration;
+				max_duration = incubation_duration + hatched_duration;
 				last_possible_time = raid_end_time;
 				break;
 
