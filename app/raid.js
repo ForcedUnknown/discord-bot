@@ -408,24 +408,19 @@ class Raid {
 				.map(async attendee_id => await this.getMember(channel_id, attendee_id)))
 				.catch(err => log.error(err)),
 			present_members = members
-				.filter(member => raid.attendees[member.id].status === RaidStatus.PRESENT);
+				.filter(member => raid.attendees[member.id].status === RaidStatus.PRESENT),
+			timeout = settings.raid_complete_timeout;
 
-		// put users to be questioned in complete-pending status
-		present_members.forEach(member => {
-			this.setMemberStatus(channel_id, member.id, RaidStatus.COMPLETE_PENDING);
-		});
+		if (present_members.length > 0) {
+			const question = channel.send(`Present trainers, have you completed this raid?  Answer **no** within ${timeout} minutes to indicate you haven't; otherwise it will be assumed you have!`)
+				.catch(err => log.error(err));
 
-		const timeout = settings.raid_complete_timeout,
-			questions = present_members
-				.map(member => member
-					.send(`Have you completed raid ${channel.toString()}?  Answer **no** within ${timeout} minutes to indicate you haven't; otherwise it will be assumed you have!`)
-					.catch(err => log.error(err)));
+			question.then(message => {
+				present_members.forEach(present_member => {
+					this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE_PENDING);
 
-		questions.forEach(async question =>
-			question
-				.then(message => {
 					message.channel.awaitMessages(
-						response => response.client.user.id !== response.author.id, {
+						response => response.author.id === present_member.id, {
 							max: 1,
 							time: timeout * 60 * 1000,
 							errors: ['time']
@@ -437,13 +432,15 @@ class Raid {
 								response = collected_responses.first();
 
 								const command_prefix = this.client.options.commandPrefix,
-									regex = new RegExp(`^${command_prefix}?(.*)`),
-									match = response.content.toLowerCase().match(regex),
-									answer = match.length > 1 ?
-										match[1].trim() :
-										'';
+									user_response = response.content.toLowerCase().trim(),
+									is_command = user_response.startsWith(command_prefix);
 
-								confirmation = this.client.registry.types.get('boolean').truthy.has(answer);
+								if (is_command) {
+									// don't try to process response
+									return true;
+								}
+
+								confirmation = this.client.registry.types.get('boolean').truthy.has(user_response);
 							} else {
 								confirmation = false;
 							}
@@ -452,7 +449,7 @@ class Raid {
 								response.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
 									.catch(err => log.error(err));
 
-								this.setMemberStatus(channel_id, message.channel.recipient.id, RaidStatus.COMPLETE);
+								this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE);
 
 								this.refreshStatusMessages(raid)
 									.catch(err => log.error(err));
@@ -460,16 +457,16 @@ class Raid {
 								response.react(Helper.getEmoji('snorlaxthumbsdown') || '👎')
 									.catch(err => log.error(err));
 
-								this.setMemberStatus(channel_id, message.channel.recipient.id, RaidStatus.PRESENT);
+								this.setMemberStatus(channel_id, present_member.id, RaidStatus.PRESENT);
 							}
 
 							return true;
 						})
 						.catch(collected_responses => {
 							// check that user didn't already set their status to something else (via running another command during the collection period)
-							if (this.getMemberStatus(channel_id, message.channel.recipient.id) === RaidStatus.COMPLETE_PENDING) {
+							if (this.getMemberStatus(channel_id, present_member.id) === RaidStatus.COMPLETE_PENDING) {
 								// set user status to complete
-								this.setMemberStatus(channel_id, message.channel.recipient.id, RaidStatus.COMPLETE);
+								this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE);
 
 								this.refreshStatusMessages(raid)
 									.catch(err => log.error(err));
@@ -479,8 +476,9 @@ class Raid {
 									.catch(err => log.error(err));
 							}
 						});
-				})
-				.catch(err => log.error(err)));
+				});
+			});
+		}
 	}
 
 	setRaidHatchTime(channel_id, hatch_time) {
