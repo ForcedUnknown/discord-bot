@@ -412,72 +412,86 @@ class Raid {
 			timeout = settings.raid_complete_timeout;
 
 		if (present_members.length > 0) {
-			const question = channel.send(`Present trainers, have you completed this raid?  Answer **no** within ${timeout} minutes to indicate you haven't; otherwise it will be assumed you have!`)
-				.catch(err => log.error(err));
+			const members_string = present_members
+				.map(member => member.displayName)
+				.reduce((prev, next) => prev + ', ' + next);
 
-			question.then(message => {
-				present_members.forEach(present_member => {
-					this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE_PENDING);
+			const autocomplete_members = [];
 
-					message.channel.awaitMessages(
-						response => response.author.id === present_member.id, {
-							max: 1,
-							time: timeout * 60 * 1000,
-							errors: ['time']
-						})
-						.then(collected_responses => {
-							let confirmation, response;
+			channel.send(`${members_string}: Have you completed this raid?  Answer **no** within ${timeout} minutes to indicate you haven't; otherwise it will be assumed you have!`)
+				.then(message => Promise.all(present_members
+					.map(present_member => {
+						this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE_PENDING);
 
-							if (collected_responses && collected_responses.size === 1) {
-								response = collected_responses.first();
+						return message.channel.awaitMessages(
+							response => response.author.id === present_member.id, {
+								max: 1,
+								time: timeout * 60 * 1000,
+								errors: ['time']
+							})
+							.then(collected_responses => {
+								let confirmation, response;
 
-								const command_prefix = this.client.options.commandPrefix,
-									user_response = response.content.toLowerCase().trim(),
-									is_command = user_response.startsWith(command_prefix);
+								if (collected_responses && collected_responses.size === 1) {
+									response = collected_responses.first();
 
-								if (is_command) {
-									// don't try to process response
-									return true;
+									const command_prefix = this.client.options.commandPrefix,
+										user_response = response.content.toLowerCase().trim(),
+										is_command = user_response.startsWith(command_prefix);
+
+									if (is_command) {
+										// don't try to process response
+										return true;
+									}
+
+									confirmation = this.client.registry.types.get('boolean').truthy.has(user_response);
+								} else {
+									confirmation = false;
 								}
 
-								confirmation = this.client.registry.types.get('boolean').truthy.has(user_response);
-							} else {
-								confirmation = false;
-							}
+								if (confirmation) {
+									response.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
+										.catch(err => log.error(err));
 
-							if (confirmation) {
-								response.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
-									.catch(err => log.error(err));
+									this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE);
 
-								this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE);
+									this.refreshStatusMessages(raid)
+										.catch(err => log.error(err));
+								} else {
+									response.react(Helper.getEmoji('snorlaxthumbsdown') || '👎')
+										.catch(err => log.error(err));
 
-								this.refreshStatusMessages(raid)
-									.catch(err => log.error(err));
-							} else {
-								response.react(Helper.getEmoji('snorlaxthumbsdown') || '👎')
-									.catch(err => log.error(err));
+									this.setMemberStatus(channel_id, present_member.id, RaidStatus.PRESENT);
+								}
 
-								this.setMemberStatus(channel_id, present_member.id, RaidStatus.PRESENT);
-							}
+								return Promise.resolve(true);
+							})
+							.catch(collected_responses => {
+								// check that user didn't already set their status to something else (via running another command during the collection period)
+								if (this.getMemberStatus(channel_id, present_member.id) === RaidStatus.COMPLETE_PENDING) {
+									autocomplete_members.push(present_member);
 
-							return true;
-						})
-						.catch(collected_responses => {
-							// check that user didn't already set their status to something else (via running another command during the collection period)
-							if (this.getMemberStatus(channel_id, present_member.id) === RaidStatus.COMPLETE_PENDING) {
-								// set user status to complete
-								this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE);
+									// set user status to complete
+									this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE);
+								}
 
-								this.refreshStatusMessages(raid)
-									.catch(err => log.error(err));
+								return Promise.resolve(true);
+							});
+					}))
+					.then(() => {
+						this.refreshStatusMessages(raid)
+							.catch(err => log.error(err));
 
-								message.channel
-									.send(`I am assuming you *have* completed raid ${channel.toString()}.`)
-									.catch(err => log.error(err));
-							}
-						});
-				});
-			});
+						if (autocomplete_members.length > 0) {
+							const members_string = autocomplete_members
+								.map(member => member.displayName)
+								.reduce((prev, next) => prev + ', ' + next);
+
+							message.channel
+								.send(`${members_string}: I am assuming you *have* completed this raid.`)
+								.catch(err => log.error(err));
+						}
+					}));
 		}
 	}
 
