@@ -627,15 +627,15 @@ class Raid {
 					'Raiding at'
 				: '',
 			start_time = !!raid.start_time ?
-				` :: ${start_label} **${moment(raid.start_time).calendar(null, calendar_format)}**`; :
+				` :: ${start_label} **${moment(raid.start_time).calendar(null, calendar_format)}**` :
 				'',
 			end_time = raid.end_time !== TimeType.UNDEFINED_END_TIME ?
-				` :: Ends at **${moment(raid.end_time).calendar(null, calendar_format)}**`; :
+				` :: Ends at **${moment(raid.end_time).calendar(null, calendar_format)}**` :
 				'';
 
 		return this.getChannel(raid.channel_id)
-			.then(channel => `**${pokemon}**\n`; +
-				`${channel.toString()} :: ${gym_name} :: **${total_attendees}** potential trainer${total_attendees !== 1 ? 's' : ''}${start_time}${end_time}\n`;)
+			.then(channel => `**${pokemon}**\n` +
+				`${channel.toString()} :: ${gym_name} :: **${total_attendees}** potential trainer${total_attendees !== 1 ? 's' : ''}${start_time}${end_time}\n`)
 			.catch(err => {
 				log.error(err);
 				return '';
@@ -654,14 +654,14 @@ class Raid {
 			const time_until_deletion = moment(raid.deletion_time).fromNow();
 
 			this.getChannel(raid.channel_id)
-				.then(channel => channel.send(`**WARNING**: This channel will self-destruct ${time_until_deletion}!`;))
+				.then(channel => channel.send(`**WARNING**: This channel will self-destruct ${time_until_deletion}!`))
 				.catch(err => log.error(err));
 		}
 	}
 
 	getRaidChannelMessage(raid) {
 		return this.getChannel(raid.channel_id)
-			.then(channel => `Use ${channel.toString()} for the following raid:`;)
+			.then(channel => `Use ${channel.toString()} for the following raid:`)
 			.catch(err => log.error(err));
 	}
 
