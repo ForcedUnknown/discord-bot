@@ -467,29 +467,35 @@ class Raid {
 								return Promise.resolve(true);
 							})
 							.catch(collected_responses => {
-								// check that user didn't already set their status to something else (via running another command during the collection period)
-								if (this.getMemberStatus(channel_id, present_member.id) === RaidStatus.COMPLETE_PENDING) {
-									autocomplete_members.push(present_member);
+								// defensive check that raid in fact still exists
+								if (!!this.getRaid(channel_id)) {
+									// check that user didn't already set their status to something else (via running another command during the collection period)
+									if (this.getMemberStatus(channel_id, present_member.id) === RaidStatus.COMPLETE_PENDING) {
+										autocomplete_members.push(present_member);
 
-									// set user status to complete
-									this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE);
+										// set user status to complete
+										this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE);
+									}
 								}
 
 								return Promise.resolve(true);
 							});
 					}))
 					.then(() => {
-						this.refreshStatusMessages(raid)
-							.catch(err => log.error(err));
-
-						if (autocomplete_members.length > 0) {
-							const members_string = autocomplete_members
-								.map(member => `**${member.displayName}**`)
-								.reduce((prev, next) => prev + ', ' + next);
-
-							message.channel
-								.send(`${members_string}: I am assuming you *have* completed this raid.`)
+						// defensive check that raid in fact still exists
+						if (!!this.getRaid(channel_id)) {
+							this.refreshStatusMessages(raid)
 								.catch(err => log.error(err));
+
+							if (autocomplete_members.length > 0) {
+								const members_string = autocomplete_members
+									.map(member => `**${member.displayName}**`)
+									.reduce((prev, next) => prev + ', ' + next);
+
+								message.channel
+									.send(`${members_string}: I am assuming you *have* completed this raid.`)
+									.catch(err => log.error(err));
+							}
 						}
 					}));
 		}
