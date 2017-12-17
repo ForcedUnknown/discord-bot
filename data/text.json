@@ -7,6 +7,9 @@
 		"warning": "Unassign roles in ${bot_channel}!",
 		"suggestion": "Try using the command `!iamnot` to remove a role."
 	},
+	"find": {
+		"warning": "Use the `!find` command in ${bot_channel} to find channels for a region."
+	},
 	"status": {
 		"warning": "Check the status of raids from a regional or raid channel!"
 	},

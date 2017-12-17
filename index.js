@@ -31,6 +31,9 @@ NodeCleanup((exitCode, signal) => {
 	Raid.shutdown();
 });
 
+Client.registry.registerDefaultTypes();
+Client.registry.registerTypesIn(__dirname + '/types');
+
 if (settings.features.roles) {
 	Client.registry.registerGroup('admin', 'Administration');
 }
@@ -42,14 +45,7 @@ if (settings.features.roles) {
 	Client.registry.registerGroup('roles', 'Roles');
 }
 
-Client.registry.registerDefaultTypes();
-Client.registry.registerDefaultGroups();
-
-Client.registry.registerCommand(require('./commands/util/help'));
-
-Client.registry.registerDefaultCommands({help: false});
-
-Client.registry.registerTypesIn(__dirname + '/types');
+Client.registry.registerGroup('util', 'Utility');
 
 if (settings.features.roles) {
 	Client.registry.registerCommands([
@@ -83,8 +79,15 @@ Client.registry.registerCommands([
 	require('./commands/raids/set-pokemon'),
 	require('./commands/raids/set-location'),
 
-	require('./commands/raids/submit-request')
+	require('./commands/raids/submit-request'),
+
+	require('./commands/util/help')
 ]);
+
+if (private_settings.google_api_key !== '') {
+	Client.registry.registerCommand(
+		require('./commands/util/find-region'));
+}
 
 let is_initialized = false;
 
