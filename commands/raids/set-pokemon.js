@@ -41,6 +41,11 @@ class SetPokemonCommand extends Commando.Command {
 			info = Raid.setRaidPokemon(message.channel.id, pokemon);
 
 		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
+			.then(result => {
+				Helper.client.emit('raidPokemonSet', info.raid, message.member.id);
+
+				return true;
+			})
 			.catch(err => log.error(err));
 
 		Raid.refreshStatusMessages(info.raid);

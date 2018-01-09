@@ -2,16 +2,18 @@
 
 const log = require('loglevel').getLogger('ImageProcessor'),
 	fs = require('fs'),
-	path = require('path'),
-	uuidv1 = require('uuid/v1'),
-	tesseract = require('tesseract.js'),
-	moment = require('moment'),
-	Helper = require('../app/helper'),
+	Gym = require('./gym'),
+	Helper = require('./helper'),
 	Jimp = require('jimp'),
-	Raid = require('../app/raid'),
+	moment = require('moment'),
+	Notify = require('./notify'),
+	path = require('path'),
+	Raid = require('./raid'),
 	region_map = require('PgP-Data/data/region-map'),
 	settings = require('../data/settings'),
-	{TimeParameter} = require('../app/constants');
+	tesseract = require('tesseract.js'),
+	{TimeParameter} = require('./constants'),
+	uuidv1 = require('uuid/v1');
 
 // Will save all images regardless of how right or wrong, in order to better examine output
 const debug_flag = false;
@@ -182,11 +184,10 @@ class ImageProcessing {
 				return this.getRaidData(id, message, new_image);
 			})
 			.then(data => {
-				log.debug(data);
-
 				// write original image as a reference
 				if (debug_flag ||
 					((data === false || (data && (!data.phone_time || !data.gym || !data.time_remaining || data.pokemon.placeholder))) && log.getLevel() === log.levels.DEBUG)) {
+					log.debug(data);
 					new_image.write(path.join(__dirname, this.image_path, `${id}.png`));
 				}
 
@@ -1134,7 +1135,7 @@ class ImageProcessing {
 				.subtract(settings.standard_raid_incubate_duration, 'minutes')
 				.subtract(settings.standard_raid_hatched_duration, 'minutes');
 
-		let gym = data.gym,
+		let gym_id = data.gym,
 			pokemon = data.pokemon,
 			time = data.phone_time,
 			duration = moment.duration(data.time_remaining, 'hh:mm:ss'),
@@ -1188,7 +1189,7 @@ class ImageProcessing {
 		}
 
 		let raid;
-		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym, time)
+		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id, time)
 			.then(async info => {
 				raid = info.raid;
 
@@ -1201,10 +1202,8 @@ class ImageProcessing {
 
 				return message.channel.send(raid_channel_message, formatted_message);
 			})
-			.then(announcement_message => {
-				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
-			})
-			.then(async bot_message => {
+			.then(announcement_message => Raid.addMessage(raid.channel_id, announcement_message, true))
+			.then(async result => {
 				await Raid.getChannel(raid.channel_id)
 					.then(async channel => {
 						// if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
@@ -1233,6 +1232,11 @@ class ImageProcessing {
 			})
 			.then(channel_raid_message => {
 				Raid.addMessage(raid.channel_id, channel_raid_message, true);
+			})
+			.then(result => {
+				Helper.client.emit('raidCreated', raid, message.member.id);
+
+				return true;
 			})
 			.catch(err => log.error(err));
 	}

@@ -4,6 +4,7 @@ const log = require('loglevel').getLogger('CreateCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup, TimeParameter} = require('../../app/constants'),
 	Gym = require('../../app/gym'),
+	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -74,6 +75,7 @@ class RaidCommand extends Commando.Command {
 		let raid;
 
 		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id)
+			// create and send announcement message to region channel
 			.then(async info => {
 				raid = info.raid;
 				const raid_channel_message = await Raid.getRaidChannelMessage(raid),
@@ -81,9 +83,8 @@ class RaidCommand extends Commando.Command {
 
 				return message.channel.send(raid_channel_message, formatted_message);
 			})
-			.then(announcement_message => {
-				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
-			})
+			.then(announcement_message => Raid.addMessage(raid.channel_id, announcement_message))
+			// create and send initial status message to raid channel
 			.then(async bot_message => {
 				const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
 					formatted_message = await Raid.getFormattedMessage(raid);
@@ -91,11 +92,9 @@ class RaidCommand extends Commando.Command {
 					.then(channel => channel.send(raid_source_channel_message, formatted_message))
 					.catch(err => log.error(err));
 			})
-			.then(channel_raid_message => {
-				return Raid.addMessage(raid.channel_id, channel_raid_message, true);
-			})
+			.then(channel_raid_message => Raid.addMessage(raid.channel_id, channel_raid_message, true))
 			// now ask user about remaining time on this brand-new raid
-			.then(pinned_message => {
+			.then(result => {
 				// somewhat hacky way of letting time type know if this is exclusive or not
 				message.is_exclusive = Raid.isExclusive(raid.channel_id);
 
@@ -118,6 +117,11 @@ class RaidCommand extends Commando.Command {
 
 					return Raid.refreshStatusMessages(raid);
 				}
+			})
+			.then(result => {
+				Helper.client.emit('raidCreated', raid, message.member.id);
+
+				return true;
 			})
 			.catch(err => log.error(err));
 	}

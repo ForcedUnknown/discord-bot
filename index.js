@@ -14,7 +14,13 @@ log.setLevel('debug');
 
 const private_settings = require('./data/private-settings'),
 	Commando = require('discord.js-commando'),
+	Discord = require('discord.js'),
 	Client = new Commando.Client({
+		owner: private_settings.owner,
+		restWsBridgeTimeout: 10000,
+		restTimeOffset: 1000
+	}),
+	NotifyClient = new Discord.Client({
 		owner: private_settings.owner,
 		restWsBridgeTimeout: 10000,
 		restTimeOffset: 1000
@@ -23,9 +29,12 @@ const private_settings = require('./data/private-settings'),
 	NodeCleanup = require('node-cleanup'),
 	Helper = require('./app/helper'),
 	IP = require('./app/process-image'),
+	ExRaidChannel = require('./app/ex-gym-channel'),
+	Notify = require('./app/notify'),
 	Raid = require('./app/raid'),
 	Utility = require('./app/utility'),
-	settings = require('./data/settings');
+	settings = require('./data/settings'),
+	{CommandGroup} = require('./app/constants');
 
 NodeCleanup((exitCode, signal) => {
 	Raid.shutdown();
@@ -35,17 +44,21 @@ Client.registry.registerDefaultTypes();
 Client.registry.registerTypesIn(__dirname + '/types');
 
 if (settings.features.roles) {
-	Client.registry.registerGroup('admin', 'Administration');
+	Client.registry.registerGroup(CommandGroup.ADMIN, 'Administration');
 }
 
-Client.registry.registerGroup('basic-raid', 'Raid Basics');
-Client.registry.registerGroup('raid-crud', 'Raid Creation and Maintenance');
+Client.registry.registerGroup(CommandGroup.BASIC_RAID, 'Raid Basics');
+Client.registry.registerGroup(CommandGroup.RAID_CRUD, 'Raid Creation and Maintenance');
 
 if (settings.features.roles) {
-	Client.registry.registerGroup('roles', 'Roles');
+	Client.registry.registerGroup(CommandGroup.ROLES, 'Roles');
 }
 
-Client.registry.registerGroup('util', 'Utility');
+if (settings.features.notifications) {
+	Client.registry.registerGroup(CommandGroup.NOTIFICATIONS, 'Notifications');
+}
+
+Client.registry.registerGroup(CommandGroup.UTIL, 'Utility');
 
 if (settings.features.roles) {
 	Client.registry.registerCommands([
@@ -54,7 +67,16 @@ if (settings.features.roles) {
 		require('./commands/admin/lsar'),
 
 		require('./commands/roles/iam'),
-		require('./commands/roles/iamnot')
+		require('./commands/roles/iamnot'),
+	]);
+}
+
+if (settings.features.notifications) {
+	Client.registry.registerCommands([
+		require('./commands/notifications/notify'),
+		require('./commands/notifications/denotify'),
+		require('./commands/notifications/list-notications'),
+		require('./commands/notifications/denotify-all'),
 	]);
 }
 
@@ -98,8 +120,17 @@ Client.on('ready', () => {
 	// upon reconnecting after longer outages
 	if (!is_initialized) {
 		Helper.setClient(Client);
+
+		if (settings.features.ex_gym_channel) {
+			ExRaidChannel.initialize();
+		}
+
+		if (settings.features.notifications) {
+			Notify.initialize();
+		}
+
 		Raid.setClient(Client);
-		DB.initialize(Client.guilds);
+		DB.initialize(Client);
 		IP.initialize();
 
 		is_initialized = true;
@@ -140,3 +171,18 @@ Client.on('guildUnavailable', guild => {
 });
 
 Client.login(private_settings.discord_bot_token);
+
+NotifyClient.on('ready', () => {
+	log.info('Notify client logged in');
+
+	Helper.setNotifyClient(NotifyClient);
+});
+
+NotifyClient.on('error', err => log.error(err));
+NotifyClient.on('warn', err => log.warn(err));
+NotifyClient.on('debug', err => log.debug(err));
+
+NotifyClient.on('rateLimit', event =>
+	log.warn(`Rate limited for ${event.timeout} ms, triggered by method '${event.method}', path '${event.path}', route '${event.route}'`));
+
+NotifyClient.login(private_settings.discord_notify_token);

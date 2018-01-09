@@ -12,17 +12,21 @@
   "message_cleanup_delay_success": 5000,
   "message_cleanup_delay_error": 30000,
   "features": {
+    "ex_gym_channel": true,
+    "notifications": true,
     "roles": true
   },
   "channels": {
     "bot_lab": "the-bot-lab",
     "mod_bot_lab": "mod-bot-only",
-    "unown": "unown-sightings"
+    "unown": "unown-sightings",
+    "ex_gym_raids": "potential-ex-gym-raids"
   },
   "help_groups": [
     "basic-raid",
     "raid-crud",
     "roles",
+    "notifications",
     "util"
   ]
 }

@@ -1,7 +1,6 @@
 "use strict";
 
 const log = require('loglevel').getLogger('Helper'),
-	Discord = require('discord.js'),
 	text = require('../data/text'),
 	{Team} = require('./constants'),
 	settings = require('../data/settings');
@@ -10,6 +9,7 @@ class Helper {
 	constructor() {
 		this.text = text;
 		this.client = null;
+		this.notify_client = null;
 
 		// cache of emoji ids, populated on client login
 		this.emojis = null;
@@ -37,6 +37,9 @@ class Helper {
 						}),
 						unown: guild.channels.find(channel => {
 							return channel.name === settings.channels.unown;
+						}),
+						ex_announce_channel: guild.channels.find(channel => {
+							return channel.name === settings.channels.ex_gym_raids;
 						}),
 						help: null,
 					},
@@ -90,6 +93,9 @@ class Helper {
 						}),
 						unown: guild.channels.find(channel => {
 							return channel.name === settings.channels.unown;
+						}),
+						ex_announce_channel: guild.channels.find(channel => {
+							return channel.name === settings.channels.ex_gym_raids;
 						}),
 						help: null,
 					},
@@ -154,6 +160,18 @@ class Helper {
 			this.emojis.delete(old_emoji.name.toLowerCase());
 			this.emojis.set(new_emoji.name.toLowerCase(), new_emoji);
 		});
+	}
+
+	setNotifyClient(client) {
+		this.notify_client = client;
+	}
+
+	getMemberForNotification(guild_id, member_id) {
+		return this.notify_client.guilds.get(guild_id).members.get(member_id)
+	}
+
+	getExRaidAnnounceChannel(guild) {
+		return this.guild.get(guild.id).channels.ex_announce_channel;
 	}
 
 	isManagement(message) {
